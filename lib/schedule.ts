@@ -121,6 +121,22 @@ export function getTomorrowPickups(): PickupDay[] {
   return [{ date: dateStr, types }];
 }
 
+export function getTodayPickups(): PickupDay[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dateStr = toDateString(today);
+  const types: PickupType[] = [];
+
+  if (isGarbageDay(today) && !HOLIDAYS_NO_GARBAGE.includes(dateStr)) {
+    types.push("garbage");
+  }
+  if (RECYCLING_DAYS.includes(dateStr)) types.push("recycling");
+  if (BULKY_DAYS.includes(dateStr)) types.push("bulky");
+
+  if (types.length === 0) return [];
+  return [{ date: dateStr, types }];
+}
+
 export const PICKUP_LABELS: Record<PickupType, string> = {
   garbage: "Garbage",
   recycling: "Recycling",

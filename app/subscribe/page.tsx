@@ -2,14 +2,28 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { t, Language, LANGUAGES } from "@/lib/i18n";
+
+const LANG_FLAGS: Record<Language, string> = {
+  en: "🇺🇸",
+  es: "🇪🇸",
+  ht: "🇭🇹",
+};
+
+const CHANNEL_KEYS = ["email", "sms", "whatsapp"] as const;
 
 export default function SubscribePage() {
+  const [lang, setLang] = useState<Language>("en");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [channels, setChannels] = useState<string[]>(["email"]);
+  const [reminderTime, setReminderTime] = useState<"evening" | "morning">("evening");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [message, setMessage] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const s = t[lang] || t.en;
+  const needsPhone = channels.includes("sms") || channels.includes("whatsapp");
 
   function toggleChannel(c: string) {
     setChannels((prev) =>
@@ -19,38 +33,25 @@ export default function SubscribePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (channels.length === 0) {
-      setMessage("Please select at least one notification method.");
-      setStatus("error");
-      return;
-    }
-    if (channels.includes("email") && !email) {
-      setMessage("Please enter your email address.");
-      setStatus("error");
-      return;
-    }
-    if (channels.includes("sms") && !phone) {
-      setMessage("Please enter your phone number.");
-      setStatus("error");
-      return;
-    }
+    if (channels.length === 0) { setErrorMsg(s.selectChannel); setStatus("error"); return; }
+    if (channels.includes("email") && !email) { setErrorMsg(s.emailRequired); setStatus("error"); return; }
+    if (needsPhone && !phone) { setErrorMsg(s.phoneRequired); setStatus("error"); return; }
 
     setStatus("loading");
-    setMessage("");
+    setErrorMsg("");
 
     try {
       const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, phone, channels }),
+        body: JSON.stringify({ name, email, phone, channels, language: lang, reminder_time: reminderTime }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong");
       setStatus("success");
-      setMessage("You're signed up! You'll get reminders the night before each pickup.");
     } catch (err: unknown) {
       setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     }
   }
 
@@ -59,11 +60,9 @@ export default function SubscribePage() {
       <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow p-8 max-w-md w-full text-center">
           <div className="text-5xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">You&apos;re all set!</h2>
-          <p className="text-gray-600 mb-6">{message}</p>
-          <Link href="/" className="text-blue-700 font-semibold hover:underline">
-            ← Back to schedule
-          </Link>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">{s.successTitle}</h2>
+          <p className="text-gray-600 mb-6">{s.successMsg}</p>
+          <Link href="/" className="text-blue-700 font-semibold hover:underline">{s.back}</Link>
         </div>
       </main>
     );
@@ -72,64 +71,69 @@ export default function SubscribePage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="bg-blue-800 text-white py-6 px-4">
-        <div className="max-w-lg mx-auto flex items-center justify-between">
-          <Link href="/" className="text-blue-200 hover:text-white text-sm">← Back</Link>
-          <h1 className="text-lg font-bold">Get Pickup Reminders</h1>
-          <span />
+        <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
+          <Link href="/" className="text-blue-200 hover:text-white text-sm shrink-0">{s.back}</Link>
+          <h1 className="text-lg font-bold text-center">{s.getPickupReminders}</h1>
+          {/* Language toggle */}
+          <div className="flex gap-1 shrink-0">
+            {(Object.keys(LANGUAGES) as Language[]).map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setLang(l)}
+                className={`px-2 py-1 rounded text-xs font-bold transition ${
+                  lang === l ? "bg-white text-blue-800" : "text-blue-200 hover:text-white"
+                }`}
+              >
+                {LANG_FLAGS[l]} {l.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-8">
         <div className="bg-white rounded-2xl shadow p-6">
-          <p className="text-gray-600 text-sm mb-6">
-            Sign up once and we&apos;ll remind you the night before each garbage, recycling, or bulky
-            waste pickup — so you never forget to take out the trash again!
-          </p>
+          <p className="text-gray-600 text-sm mb-6">{s.subscribeDesc}</p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Your Name
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{s.yourName}</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Maria Garcia"
+                placeholder={s.namePlaceholder}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
 
-            {/* Notification method */}
+            {/* Notification channels */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                How do you want to be reminded?
-              </label>
-              <div className="flex gap-3">
-                {["email", "sms"].map((c) => (
+              <label className="block text-sm font-medium text-gray-700 mb-2">{s.howReminded}</label>
+              <div className="flex gap-2">
+                {CHANNEL_KEYS.map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => toggleChannel(c)}
-                    className={`flex-1 py-2 rounded-lg border-2 text-sm font-semibold transition ${
+                    className={`flex-1 py-2 rounded-lg border-2 text-xs font-semibold transition ${
                       channels.includes(c)
                         ? "border-blue-600 bg-blue-50 text-blue-700"
                         : "border-gray-200 text-gray-500 hover:border-gray-300"
                     }`}
                   >
-                    {c === "email" ? "📧 Email" : "📱 Text Message"}
+                    {s[c]}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Email */}
+            {/* Email input */}
             {channels.includes("email") && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{s.emailAddress}</label>
                 <input
                   type="email"
                   value={email}
@@ -140,11 +144,11 @@ export default function SubscribePage() {
               </div>
             )}
 
-            {/* Phone */}
-            {channels.includes("sms") && (
+            {/* Phone input (SMS or WhatsApp) */}
+            {needsPhone && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number
+                  {channels.includes("whatsapp") && !channels.includes("sms") ? s.whatsappNumber : s.phoneNumber}
                 </label>
                 <input
                   type="tel"
@@ -156,10 +160,31 @@ export default function SubscribePage() {
               </div>
             )}
 
+            {/* Reminder time */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{s.whenRemind}</label>
+              <div className="flex gap-2">
+                {(["evening", "morning"] as const).map((time) => (
+                  <button
+                    key={time}
+                    type="button"
+                    onClick={() => setReminderTime(time)}
+                    className={`flex-1 py-2 rounded-lg border-2 text-xs font-semibold transition ${
+                      reminderTime === time
+                        ? "border-blue-600 bg-blue-50 text-blue-700"
+                        : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    {s[time]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Error */}
             {status === "error" && (
               <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                {message}
+                {errorMsg}
               </p>
             )}
 
@@ -168,13 +193,14 @@ export default function SubscribePage() {
               disabled={status === "loading"}
               className="w-full bg-blue-800 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 rounded-full transition"
             >
-              {status === "loading" ? "Signing up..." : "🔔 Sign Me Up"}
+              {status === "loading" ? s.signingUp : `🔔 ${s.signMeUp}`}
             </button>
           </form>
 
-          <p className="text-xs text-gray-400 text-center mt-4">
-            Free service for Zone 14 residents. You can unsubscribe anytime.
-          </p>
+          <p className="text-xs text-gray-400 text-center mt-4">{s.freeService}</p>
+          {needsPhone && (
+            <p className="text-xs text-gray-400 text-center mt-1">{s.stopSms}</p>
+          )}
         </div>
       </div>
     </main>

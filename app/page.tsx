@@ -1,55 +1,67 @@
 import Calendar from "@/components/Calendar";
 import UpcomingPickups from "@/components/UpcomingPickups";
+import LangToggle from "@/components/LangToggle";
+import ShareButtons from "@/components/ShareButtons";
 import Link from "next/link";
+import { t, Language } from "@/lib/i18n";
 
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ lang?: string }>;
+}) {
+  const params = await searchParams;
+  const lang = (params.lang as Language) || "en";
+  const strings = t[lang] || t.en;
+
   return (
     <main className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-blue-800 text-white py-6 px-4 shadow-lg">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">🗑️ Homestead Trash Reminder</h1>
-            <p className="text-blue-200 text-sm mt-1">Zone 14 · City of Homestead, FL · 2026</p>
+            <h1 className="text-2xl font-bold">🗑️ {strings.siteTitle}</h1>
+            <p className="text-blue-200 text-sm mt-1">{strings.siteSubtitle}</p>
           </div>
-          <Link
-            href="/subscribe"
-            className="bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold px-5 py-2 rounded-full transition text-sm whitespace-nowrap"
-          >
-            🔔 Get Reminders
-          </Link>
+          <div className="flex items-center gap-3 flex-wrap justify-center">
+            <LangToggle currentLang={lang} />
+            <Link
+              href={`/subscribe${lang !== "en" ? `?lang=${lang}` : ""}`}
+              className="bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold px-5 py-2 rounded-full transition text-sm whitespace-nowrap"
+            >
+              🔔 {strings.getReminders}
+            </Link>
+          </div>
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
         {/* Legend */}
         <div className="bg-white rounded-2xl shadow p-5">
-          <h2 className="font-semibold text-gray-700 mb-3">Legend</h2>
+          <h2 className="font-semibold text-gray-700 mb-3">{strings.legend}</h2>
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <span className="w-4 h-4 rounded-full bg-yellow-500 inline-block" />
-              <span className="text-sm text-gray-600">Garbage (Mon &amp; Thu)</span>
+              <span className="text-sm text-gray-600">{strings.garbage}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-4 h-4 rounded-full bg-green-500 inline-block" />
-              <span className="text-sm text-gray-600">Recycling</span>
+              <span className="text-sm text-gray-600">{strings.recycling}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-4 h-4 rounded-full bg-blue-500 inline-block" />
-              <span className="text-sm text-gray-600">Bulky Waste</span>
+              <span className="text-sm text-gray-600">{strings.bulky}</span>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-3">
-            * No garbage service on Jan 19 (MLK Day), Jun 19 (Juneteenth), Dec 25 (Christmas)
-          </p>
+          <p className="text-xs text-gray-400 mt-3">{strings.holidayNote}</p>
         </div>
 
         {/* Upcoming pickups */}
-        <UpcomingPickups />
+        <UpcomingPickups lang={lang} />
 
         {/* Full year calendar */}
         <div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">2026 Full Schedule</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">{strings.fullSchedule}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 12 }, (_, i) => (
               <Calendar key={i + 1} year={2026} month={i + 1} />
@@ -59,22 +71,27 @@ export default function Home() {
 
         {/* CTA */}
         <div className="bg-blue-800 text-white rounded-2xl p-6 text-center shadow">
-          <h3 className="text-xl font-bold mb-2">Never miss a pickup!</h3>
-          <p className="text-blue-200 mb-4 text-sm">
-            Sign up to get a reminder the night before by email or text message.
-          </p>
+          <h3 className="text-xl font-bold mb-2">{strings.neverMiss}</h3>
+          <p className="text-blue-200 mb-4 text-sm">{strings.signUpCta}</p>
           <Link
-            href="/subscribe"
+            href={`/subscribe${lang !== "en" ? `?lang=${lang}` : ""}`}
             className="bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold px-8 py-3 rounded-full transition inline-block"
           >
-            🔔 Sign Up for Reminders — It&apos;s Free
+            🔔 {strings.signUpBtn}
           </Link>
         </div>
 
+        {/* Share */}
+        <div className="bg-white rounded-2xl shadow p-5 text-center">
+          <h3 className="font-bold text-gray-800 mb-1">{strings.shareTitle}</h3>
+          <p className="text-sm text-gray-500 mb-4">{strings.shareText} trashreminder.info</p>
+          <ShareButtons lang={lang} />
+        </div>
+
         <footer className="text-center text-xs text-gray-400 pb-4">
-          Serving Zone 14 · Homestead, FL · Not affiliated with the City of Homestead
+          {strings.footer}
           <br />
-          Questions? Call 305.224.4660 (Garbage) or 305.224.4663 (Bulky)
+          {strings.footerPhone}
         </footer>
       </div>
     </main>
