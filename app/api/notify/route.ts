@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { sendPickupReminderEmail } from "@/lib/email";
-import { sendPickupReminderSMS } from "@/lib/sms";
+import { sendPickupReminderSMS } from "@/lib/callfire";
 import { sendPickupReminderWhatsApp } from "@/lib/whatsapp";
 import { getTomorrowPickups, getTodayPickups } from "@/lib/schedule";
 
