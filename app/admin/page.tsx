@@ -1,31 +1,34 @@
 import { getSupabase } from "@/lib/supabase";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import SubscriberTable, { Subscriber } from "@/components/SubscriberTable";
 
 export const dynamic = "force-dynamic";
 
-async function getStats() {
+async function getData() {
   const db = getSupabase();
   const { data: subscribers } = await db
     .from("subscribers")
     .select("*")
     .order("created_at", { ascending: false });
 
-  const all = subscribers || [];
+  const all = (subscribers || []) as Subscriber[];
   const active = all.filter((s) => s.active);
 
   return {
-    total: all.length,
-    active: active.length,
-    email: active.filter((s) => s.channels?.includes("email")).length,
-    sms: active.filter((s) => s.channels?.includes("sms")).length,
-    whatsapp: active.filter((s) => s.channels?.includes("whatsapp")).length,
-    english: active.filter((s) => s.language === "en" || !s.language).length,
-    spanish: active.filter((s) => s.language === "es").length,
-    creole: active.filter((s) => s.language === "ht").length,
-    evening: active.filter((s) => s.reminder_time === "evening" || !s.reminder_time).length,
-    morning: active.filter((s) => s.reminder_time === "morning").length,
-    recent: all.slice(0, 10),
+    all,
+    stats: {
+      total: all.length,
+      active: active.length,
+      email: active.filter((s) => s.channels?.includes("email")).length,
+      sms: active.filter((s) => s.channels?.includes("sms")).length,
+      whatsapp: active.filter((s) => s.channels?.includes("whatsapp")).length,
+      english: active.filter((s) => s.language === "en" || !s.language).length,
+      spanish: active.filter((s) => s.language === "es").length,
+      creole: active.filter((s) => s.language === "ht").length,
+      evening: active.filter((s) => s.reminder_time === "evening" || !s.reminder_time).length,
+      morning: active.filter((s) => s.reminder_time === "morning").length,
+    },
   };
 }
 
@@ -42,7 +45,7 @@ export default async function AdminPage({
     redirect("/admin/login");
   }
 
-  const stats = await getStats();
+  const { all, stats } = await getData();
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -99,51 +102,8 @@ export default async function AdminPage({
           </div>
         </div>
 
-        {/* Recent signups */}
-        <div className="bg-white rounded-2xl shadow p-5">
-          <h2 className="font-bold text-gray-800 mb-4">Recent Signups</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-400 border-b">
-                  <th className="pb-2">Name</th>
-                  <th className="pb-2">Contact</th>
-                  <th className="pb-2">Channels</th>
-                  <th className="pb-2">Lang</th>
-                  <th className="pb-2">Status</th>
-                  <th className="pb-2">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {stats.recent.map((sub: {
-                  id: string;
-                  name: string;
-                  email: string;
-                  phone: string;
-                  channels: string[];
-                  language: string;
-                  active: boolean;
-                  created_at: string;
-                }) => (
-                  <tr key={sub.id} className="text-gray-700">
-                    <td className="py-2">{sub.name || "—"}</td>
-                    <td className="py-2 text-xs">{sub.email || sub.phone || "—"}</td>
-                    <td className="py-2">{(sub.channels || []).join(", ")}</td>
-                    <td className="py-2">{sub.language || "en"}</td>
-                    <td className="py-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${sub.active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                        {sub.active ? "Active" : "Off"}
-                      </span>
-                    </td>
-                    <td className="py-2 text-xs text-gray-400">
-                      {new Date(sub.created_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Subscribers table */}
+        <SubscriberTable subscribers={all} adminPw={pw || ""} />
 
         {/* Manual trigger */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
