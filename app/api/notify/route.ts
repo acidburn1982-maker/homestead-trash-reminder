@@ -5,8 +5,8 @@ import { sendPickupReminderSMS } from "@/lib/sms";
 import { getTomorrowPickups } from "@/lib/schedule";
 
 // This route is called by a cron job every evening to send reminders.
-// Protect it with a secret token so only the cron can trigger it.
-export async function POST(req: NextRequest) {
+// Vercel crons use GET; manual triggers can use POST. Both are protected.
+async function handleNotify(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -57,4 +57,12 @@ export async function POST(req: NextRequest) {
     smsSent,
     errors,
   });
+}
+
+export async function GET(req: NextRequest) {
+  return handleNotify(req);
+}
+
+export async function POST(req: NextRequest) {
+  return handleNotify(req);
 }
