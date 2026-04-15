@@ -35,7 +35,9 @@ export async function sendPickupReminderSMS(
   };
 
   const message = messages[language] || messages.en;
-  const phoneNumber = to.startsWith("+") ? to : `+${to}`;
+  // CallFire wants E.164 without the leading "+"
+  const phoneNumber = to.replace(/\D/g, "");
+  const fromNumber = getFromNumber().replace(/\D/g, "");
 
   const res = await fetch(CALLFIRE_API_URL, {
     method: "POST",
@@ -47,7 +49,7 @@ export async function sendPickupReminderSMS(
       {
         phoneNumber,
         message,
-        fromNumber: getFromNumber(),
+        fromNumber,
       },
     ]),
   });
