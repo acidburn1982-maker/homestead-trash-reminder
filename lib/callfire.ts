@@ -1,6 +1,6 @@
 import { PickupType, PICKUP_LABELS } from "./schedule";
 
-const CALLFIRE_API_URL = "https://api.callfire.com/v2/texts/send";
+const CALLFIRE_API_URL = "https://api.callfire.com/v2/texts";
 
 function getAuth() {
   const login = process.env.CALLFIRE_APP_LOGIN;
