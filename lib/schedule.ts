@@ -46,13 +46,23 @@ const BULKY_DAYS = [
   "2026-12-04", "2026-12-18",
 ];
 
+// Get current date/time in Eastern Time (Homestead FL)
+function nowET(): Date {
+  const now = new Date();
+  const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
+  return new Date(etStr);
+}
+
 function isGarbageDay(date: Date): boolean {
   const day = date.getDay(); // 0=Sun, 1=Mon, ..., 4=Thu
   return day === 1 || day === 4;
 }
 
 function toDateString(date: Date): string {
-  return date.toISOString().split("T")[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export function getScheduleForMonth(year: number, month: number): PickupDay[] {
@@ -81,7 +91,7 @@ export function getScheduleForMonth(year: number, month: number): PickupDay[] {
 
 export function getUpcomingPickups(daysAhead = 7): PickupDay[] {
   const result: PickupDay[] = [];
-  const today = new Date();
+  const today = nowET();
   today.setHours(0, 0, 0, 0);
 
   for (let i = 0; i <= daysAhead; i++) {
@@ -105,7 +115,7 @@ export function getUpcomingPickups(daysAhead = 7): PickupDay[] {
 }
 
 export function getTomorrowPickups(): PickupDay[] {
-  const tomorrow = new Date();
+  const tomorrow = nowET();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(0, 0, 0, 0);
   const dateStr = toDateString(tomorrow);
@@ -122,7 +132,7 @@ export function getTomorrowPickups(): PickupDay[] {
 }
 
 export function getTodayPickups(): PickupDay[] {
-  const today = new Date();
+  const today = nowET();
   today.setHours(0, 0, 0, 0);
   const dateStr = toDateString(today);
   const types: PickupType[] = [];
