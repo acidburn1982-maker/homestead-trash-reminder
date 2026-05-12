@@ -46,11 +46,32 @@ const BULKY_DAYS = [
   "2026-12-04", "2026-12-18",
 ];
 
-// Get current date/time in Eastern Time (Homestead FL)
+// Get the current calendar day in Eastern Time as a Date anchored at
+// 12:00 UTC of that day.
+//
+// Why noon-UTC: we only care about the calendar day, not the time of day.
+// Anchoring at noon UTC means subsequent getDate()/getDay()/setDate()
+// calls return the same calendar day in any reasonable server timezone,
+// so day-arithmetic can never accidentally cross a date boundary.
+//
+// The previous implementation used `new Date(toLocaleString(...))` which
+// double-translates: it formats the time in ET then re-parses that string
+// AS IF it were the server's local timezone (UTC on Vercel). That produces
+// a Date object roughly 4–5 hours off, which around UTC midnight (8pm ET)
+// flipped "tomorrow" to the wrong day — so the 7pm ET evening cron sent
+// reminders for the wrong pickup date.
 function nowET(): Date {
-  const now = new Date();
-  const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
-  return new Date(etStr);
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(new Date());
+  const y = Number(parts.find((p) => p.type === "year")?.value);
+  const m = Number(parts.find((p) => p.type === "month")?.value);
+  const d = Number(parts.find((p) => p.type === "day")?.value);
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 }
 
 function isGarbageDay(date: Date): boolean {
