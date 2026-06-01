@@ -8,6 +8,18 @@
     {
       "path": "/api/notify?time=evening",
       "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/notify?time=evening&attempt=2",
+      "schedule": "30 23 * * *"
+    },
+    {
+      "path": "/api/notify?time=evening&attempt=3",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/watchdog",
+      "schedule": "0 1 * * *"
     }
   ]
 }

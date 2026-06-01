@@ -66,35 +66,86 @@ async function handleNotify(req: NextRequest) {
   let whatsappSent = 0;
   const errors: string[] = [];
 
+  // ── Idempotency: load every send already recorded for this pickup_date+time ──
+  // Backup crons (7:30pm, 8pm) will see these and skip subscribers already notified.
+  const supabase = getSupabase();
+  const { data: alreadySent } = await supabase
+    .from("notification_runs")
+    .select("subscriber_id, channel")
+    .eq("pickup_date", date)
+    .eq("reminder_time", time)
+    .eq("status", "sent");
+
+  const sentKey = (subId: string, channel: string) => `${subId}|${channel}`;
+  const sentSet = new Set<string>(
+    (alreadySent || []).map((r) => sentKey(r.subscriber_id, r.channel))
+  );
+  console.log(`[notify] idempotency: ${sentSet.size} sends already recorded for ${date}/${time}`);
+
+  let skipped = 0;
+
   await Promise.allSettled(
     subscribers.map(async (sub) => {
       const lang = sub.language || "en";
       const channels = sub.channels || [];
-      try {
-        if (channels.includes("email") && sub.email) {
-          await sendPickupReminderEmail(sub.email, sub.name, date, types, lang);
-          emailsSent++;
-          console.log(`[notify] sent email to ${sub.email}`);
+
+      // Helper: send via one channel + record the result; skip if already sent.
+      const sendVia = async (
+        channel: "email" | "sms" | "whatsapp",
+        recipient: string | undefined,
+        fn: () => Promise<unknown>
+      ): Promise<"sent" | "skipped" | "error"> => {
+        if (!channels.includes(channel) || !recipient) return "skipped";
+        if (sentSet.has(sentKey(sub.id, channel))) {
+          skipped++;
+          console.log(`[notify] skip ${channel} for ${recipient} — already sent`);
+          return "skipped";
         }
-        if (channels.includes("sms") && sub.phone) {
-          await sendPickupReminderSMS(sub.phone, sub.name, date, types, lang);
-          smsSent++;
-          console.log(`[notify] sent sms to ${sub.phone}`);
+        try {
+          await fn();
+          await supabase.from("notification_runs").insert({
+            pickup_date: date,
+            reminder_time: time,
+            subscriber_id: sub.id,
+            channel,
+            status: "sent",
+          });
+          console.log(`[notify] sent ${channel} to ${recipient}`);
+          return "sent";
+        } catch (err) {
+          const msg = `Failed for ${recipient} (${channel}): ${err instanceof Error ? err.message : String(err)}`;
+          console.error(`[notify] ${msg}`);
+          errors.push(msg);
+          await supabase.from("notification_runs").insert({
+            pickup_date: date,
+            reminder_time: time,
+            subscriber_id: sub.id,
+            channel,
+            status: "error",
+            error_message: msg.slice(0, 500),
+          });
+          return "error";
         }
-        if (channels.includes("whatsapp") && sub.phone) {
-          await sendPickupReminderWhatsApp(sub.phone, sub.name, date, types, lang);
-          whatsappSent++;
-          console.log(`[notify] sent whatsapp to ${sub.phone}`);
-        }
-      } catch (err) {
-        const msg = `Failed for ${sub.email || sub.phone}: ${err instanceof Error ? err.message : String(err)}`;
-        console.error(`[notify] ${msg}`);
-        errors.push(msg);
-      }
+      };
+
+      if ((await sendVia("email",    sub.email, () => sendPickupReminderEmail(sub.email,   sub.name, date, types, lang))) === "sent") emailsSent++;
+      if ((await sendVia("sms",      sub.phone, () => sendPickupReminderSMS(sub.phone,     sub.name, date, types, lang))) === "sent") smsSent++;
+      if ((await sendVia("whatsapp", sub.phone, () => sendPickupReminderWhatsApp(sub.phone, sub.name, date, types, lang))) === "sent") whatsappSent++;
     })
   );
 
-  const summary = { date, types, time, emailsSent, smsSent, whatsappSent, errors };
+  // Summary row — recorded with a synthetic 'summary' channel so the watchdog
+  // can quickly query "did *any* notify run complete for this pickup_date/time?"
+  await supabase.from("notification_runs").insert({
+    pickup_date: date,
+    reminder_time: time,
+    subscriber_id: null,
+    channel: "summary",
+    status: "sent",
+    error_message: errors.length ? `${errors.length} provider errors — see prior rows` : null,
+  });
+
+  const summary = { date, types, time, emailsSent, smsSent, whatsappSent, skipped, errors };
   console.log(`[notify] done — ${JSON.stringify(summary)}`);
   return NextResponse.json(summary);
 }
